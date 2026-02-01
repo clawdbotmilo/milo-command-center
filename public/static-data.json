@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-02-01T19:21:17.054Z",
+  "generatedAt": "2026-02-01T19:23:56.025Z",
   "system": {
     "hostname": "ip-172-31-2-195",
     "os": "Linux 6.14.0-1018-aws",
     "nodeVersion": "v22.22.0",
-    "uptime": "up 1 week, 20 hours, 26 minutes",
+    "uptime": "up 1 week, 20 hours, 28 minutes",
     "model": "claude-opus-4-5",
     "channel": "telegram",
     "disk": {
@@ -14,11 +14,23 @@
     },
     "memory": {
       "total": "7.6Gi",
-      "used": "1.7Gi",
-      "usedPercent": "22%"
+      "used": "1.6Gi",
+      "usedPercent": "21%"
     }
   },
   "cron": [
+    {
+      "name": "Email check",
+      "enabled": true,
+      "schedule": "Every 15m",
+      "nextRun": "2/1/2026, 7:37:43 PM"
+    },
+    {
+      "name": "Notion coding tasks",
+      "enabled": true,
+      "schedule": "Every 15m",
+      "nextRun": "2/1/2026, 7:37:43 PM"
+    },
     {
       "name": "Good morning poem for Lexie",
       "enabled": true,

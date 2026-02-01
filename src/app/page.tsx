@@ -42,8 +42,6 @@ const SKILLS: Skill[] = [
   { name: 'bluebubbles', emoji: '💭' }
 ]
 
-// API routes proxy to EC2 to avoid mixed content issues
-
 function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
     'Not started': 'bg-gray-700 text-gray-300',
@@ -60,35 +58,9 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<string>('')
-  const [speakText, setSpeakText] = useState<string>('')
-  const [speaking, setSpeaking] = useState(false)
-
-  const handleSpeak = async () => {
-    if (!speakText.trim() || speaking) return
-    setSpeaking(true)
-    try {
-      const response = await fetch('/api/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: speakText })
-      })
-      if (response.ok) {
-        const blob = await response.blob()
-        const audio = new Audio(URL.createObjectURL(blob))
-        audio.play()
-        audio.onended = () => setSpeaking(false)
-      } else {
-        setSpeaking(false)
-      }
-    } catch (e) {
-      console.error('Speech error:', e)
-      setSpeaking(false)
-    }
-  }
 
   const fetchAll = async () => {
     try {
-      // Fetch from API routes (proxied to EC2)
       const [systemRes, cronRes, tasksRes] = await Promise.all([
         fetch('/api/system', { cache: 'no-store' }).catch(() => null),
         fetch('/api/cron', { cache: 'no-store' }).catch(() => null),
@@ -120,7 +92,6 @@ export default function Home() {
 
   useEffect(() => {
     fetchAll()
-    // Auto-refresh every 30 seconds
     const interval = setInterval(fetchAll, 30000)
     return () => clearInterval(interval)
   }, [])
@@ -298,35 +269,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Voice Panel */}
-      <div className="mt-6 bg-milo-card border border-milo-border rounded-xl p-6">
-        <h2 className="text-xl font-semibold flex items-center gap-2 mb-4">
-          <span>🎤</span> Voice
-        </h2>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            value={speakText}
-            onChange={(e) => setSpeakText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSpeak()}
-            placeholder="Type something for Milo to say..."
-            className="flex-1 bg-milo-dark border border-milo-border rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-green-500"
-          />
-          <button
-            onClick={handleSpeak}
-            disabled={speaking || !speakText.trim()}
-            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-              speaking || !speakText.trim()
-                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-500 text-white'
-            }`}
-          >
-            {speaking ? '🔊 Speaking...' : '🔊 Speak'}
-          </button>
-        </div>
-        <p className="text-xs text-gray-500 mt-2">Voice: George 🇬🇧 (British storyteller)</p>
       </div>
 
       {/* Footer */}

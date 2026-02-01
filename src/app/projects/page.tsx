@@ -194,11 +194,12 @@ function ProjectsPageContent() {
           throw new Error('Failed to fetch project')
         }
         const data = await res.json()
+        const project = data.project
         setProjectDetails({
-          name: data.name,
-          status: data.status,
-          created: data.created,
-          updated: data.updated,
+          name: project.name,
+          status: project.status,
+          created: project.created,
+          updated: project.updated,
         })
       } catch (err) {
         setProjectError(err instanceof Error ? err.message : 'Unknown error')
@@ -224,11 +225,12 @@ function ProjectsPageContent() {
         const res = await fetch(`/api/projects/${encodeURIComponent(selectedProject)}`)
         if (res.ok) {
           const data = await res.json()
+          const project = data.project
           setProjectDetails({
-            name: data.name,
-            status: data.status,
-            created: data.created,
-            updated: data.updated,
+            name: project.name,
+            status: project.status,
+            created: project.created,
+            updated: project.updated,
           })
         }
       } catch (err) {

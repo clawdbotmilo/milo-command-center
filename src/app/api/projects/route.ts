@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { listProjects, createProject, projectExists } from '@/lib/projects'
+import { listProjectsDb, createProjectDb, projectExistsDb } from '@/lib/projects-db'
 
 /**
  * GET /api/projects
@@ -7,7 +7,7 @@ import { listProjects, createProject, projectExists } from '@/lib/projects'
  */
 export async function GET() {
   try {
-    const projects = await listProjects()
+    const projects = await listProjectsDb()
     
     return NextResponse.json({
       projects: projects.map(p => ({
@@ -29,7 +29,7 @@ export async function GET() {
 
 /**
  * POST /api/projects
- * Creates a new project folder with empty plan template
+ * Creates a new project
  * Body: { name: string }
  */
 export async function POST(request: NextRequest) {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Check if project already exists
-    if (await projectExists(name)) {
+    if (await projectExistsDb(name)) {
       return NextResponse.json(
         { error: 'Project already exists' },
         { status: 409 }
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Create the project
-    await createProject(name)
+    await createProjectDb(name)
     
     return NextResponse.json(
       { message: 'Project created successfully', name },

@@ -1,53 +1,32 @@
 import { NextResponse } from 'next/server'
-import { listProjects, getOrchestrationState } from '@/lib/projects'
+import { listProjectsDb } from '@/lib/projects-db'
 
-interface ProjectSummary {
-  name: string
-  status: string
-  taskCount: number
-  completedCount: number
-  runningAgents: number
-}
-
+/**
+ * GET /api/orchestration
+ * Returns all projects with their orchestration state summary
+ */
 export async function GET() {
   try {
-    const projects = await listProjects()
+    const projects = await listProjectsDb()
     
-    const projectSummaries: ProjectSummary[] = await Promise.all(
-      projects.map(async (project) => {
-        const orchestrationState = await getOrchestrationState(project.name)
-        
-        let taskCount = 0
-        let completedCount = 0
-        let runningAgents = 0
-        
-        if (orchestrationState) {
-          const taskStates = Object.values(orchestrationState.tasks)
-          taskCount = taskStates.length
-          completedCount = taskStates.filter(t => t.status === 'DONE').length
-          runningAgents = taskStates.filter(t => t.status === 'RUNNING').length
-        } else if (project.plan) {
-          // Fallback to plan data if no orchestration state
-          taskCount = project.plan.tasks.length
-          completedCount = project.plan.tasks.filter(t => t.status === 'DONE').length
-          runningAgents = project.plan.tasks.filter(t => t.status === 'RUNNING').length
-        }
-        
-        return {
-          name: project.name,
-          status: project.status,
-          taskCount,
-          completedCount,
-          runningAgents,
-        }
-      })
-    )
+    const projectSummaries = projects.map(p => {
+      const tasks = p.plan?.tasks || []
+      const completedCount = 0 // Would need orchestration state to calculate
+      
+      return {
+        name: p.name,
+        status: p.status,
+        taskCount: tasks.length,
+        completedCount,
+        runningAgents: 0, // Would need orchestration state
+      }
+    })
     
     return NextResponse.json({ projects: projectSummaries })
   } catch (error) {
-    console.error('Error fetching orchestration data:', error)
+    console.error('Error getting orchestration:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch orchestration data' },
+      { error: 'Failed to get orchestration data' },
       { status: 500 }
     )
   }

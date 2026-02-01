@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { promises as fs } from 'fs'
-import path from 'path'
-import { getProjectStatus, projectExists, getProjectDir } from '@/lib/projects'
+import { revertToDraftDb, getProjectStatusDb, projectExistsDb } from '@/lib/projects-db'
 
 interface RouteParams {
   params: Promise<{ name: string }>
@@ -9,67 +7,39 @@ interface RouteParams {
 
 /**
  * POST /api/projects/[name]/revert
- * Reverts a FINALIZED project back to DRAFT status
+ * Changes project status back to DRAFT
  */
-export async function POST(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { name } = await params
     
     // Check if project exists
-    if (!(await projectExists(name))) {
+    if (!await projectExistsDb(name)) {
       return NextResponse.json(
         { error: 'Project not found' },
         { status: 404 }
       )
     }
     
-    // Check current status - must be FINALIZED to revert
-    const status = await getProjectStatus(name)
-    
-    if (status === 'DRAFT') {
+    // Check current status
+    const status = await getProjectStatusDb(name)
+    if (status !== 'FINALIZED') {
       return NextResponse.json(
-        { error: 'Project is already in draft status' },
+        { error: `Cannot revert from ${status} status` },
         { status: 400 }
       )
     }
     
-    if (status === 'EXECUTING') {
-      return NextResponse.json(
-        { error: 'Cannot revert: project is currently executing' },
-        { status: 400 }
-      )
-    }
-    
-    if (status === 'COMPLETED') {
-      return NextResponse.json(
-        { error: 'Cannot revert: project is already completed' },
-        { status: 400 }
-      )
-    }
-    
-    // Revert the plan status from FINALIZED to DRAFT
-    const planPath = path.join(getProjectDir(name), 'PROJECT-PLAN.md')
-    let content = await fs.readFile(planPath, 'utf-8')
-    
-    // Replace FINALIZED status with DRAFT
-    content = content.replace(
-      /<!-- Status: FINALIZED -->/,
-      '<!-- Status: DRAFT -->'
-    )
-    
-    await fs.writeFile(planPath, content, 'utf-8')
+    await revertToDraftDb(name)
     
     return NextResponse.json({ 
-      message: 'Project reverted to draft',
+      message: 'Reverted to draft successfully',
       status: 'DRAFT'
     })
   } catch (error) {
-    console.error('Error reverting project:', error)
+    console.error('Error reverting to draft:', error)
     return NextResponse.json(
-      { error: 'Failed to revert project' },
+      { error: 'Failed to revert to draft' },
       { status: 500 }
     )
   }

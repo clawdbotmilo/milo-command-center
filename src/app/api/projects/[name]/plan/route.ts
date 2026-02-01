@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRawPlan, savePlan, getProjectStatus, projectExists } from '@/lib/projects'
+import { getRawPlanDb, savePlanDb, getProjectStatusDb, projectExistsDb } from '@/lib/projects-db'
 
 interface RouteParams {
   params: Promise<{ name: string }>
@@ -9,31 +9,20 @@ interface RouteParams {
  * GET /api/projects/[name]/plan
  * Returns raw plan markdown
  */
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { name } = await params
     
-    // Check if project exists
-    if (!(await projectExists(name))) {
+    const content = await getRawPlanDb(name)
+    
+    if (content === null) {
       return NextResponse.json(
         { error: 'Project not found' },
         { status: 404 }
       )
     }
     
-    const plan = await getRawPlan(name)
-    
-    if (!plan) {
-      return NextResponse.json(
-        { error: 'Plan not found' },
-        { status: 404 }
-      )
-    }
-    
-    return NextResponse.json({ content: plan })
+    return NextResponse.json({ content })
   } catch (error) {
     console.error('Error getting plan:', error)
     return NextResponse.json(
@@ -48,41 +37,37 @@ export async function GET(
  * Saves plan markdown (only if status is DRAFT)
  * Body: { content: string }
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { name } = await params
+    const body = await request.json()
+    const { content } = body
+    
+    if (typeof content !== 'string') {
+      return NextResponse.json(
+        { error: 'Content is required' },
+        { status: 400 }
+      )
+    }
     
     // Check if project exists
-    if (!(await projectExists(name))) {
+    if (!await projectExistsDb(name)) {
       return NextResponse.json(
         { error: 'Project not found' },
         { status: 404 }
       )
     }
     
-    // Check project status - only allow editing if DRAFT
-    const status = await getProjectStatus(name)
+    // Check status - only allow editing in DRAFT
+    const status = await getProjectStatusDb(name)
     if (status !== 'DRAFT') {
       return NextResponse.json(
-        { error: `Cannot edit plan: project is ${status}. Only DRAFT projects can be edited.` },
+        { error: `Cannot edit plan in ${status} status. Revert to draft first.` },
         { status: 403 }
       )
     }
     
-    const body = await request.json()
-    const { content } = body
-    
-    if (!content || typeof content !== 'string') {
-      return NextResponse.json(
-        { error: 'Plan content is required' },
-        { status: 400 }
-      )
-    }
-    
-    await savePlan(name, content)
+    await savePlanDb(name, content)
     
     return NextResponse.json({ message: 'Plan saved successfully' })
   } catch (error) {

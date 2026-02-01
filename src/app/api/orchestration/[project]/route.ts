@@ -1,44 +1,42 @@
-import { NextResponse } from 'next/server'
-import { getProject, getOrchestrationState } from '@/lib/projects'
+import { NextRequest, NextResponse } from 'next/server'
+import { getOrchestrationStateDb, projectExistsDb } from '@/lib/projects-db'
 
 interface RouteParams {
   params: Promise<{ project: string }>
 }
 
-export async function GET(request: Request, { params }: RouteParams) {
+/**
+ * GET /api/orchestration/[project]
+ * Returns detailed orchestration state for a project
+ */
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { project: projectName } = await params
+    const { project } = await params
     
-    // Check if project exists
-    const project = await getProject(projectName)
-    if (!project) {
+    if (!await projectExistsDb(project)) {
       return NextResponse.json(
         { error: 'Project not found' },
         { status: 404 }
       )
     }
     
-    // Get orchestration state
-    const orchestrationState = await getOrchestrationState(projectName)
+    const state = await getOrchestrationStateDb(project)
     
-    if (!orchestrationState) {
-      // Return a minimal state if no orchestration file exists
+    if (!state) {
       return NextResponse.json({
-        project: projectName,
-        status: project.status,
-        created: project.created,
-        updated: project.updated,
+        project,
+        status: 'NOT_STARTED',
         tasks: {},
         queue: [],
         locks: {},
       })
     }
     
-    return NextResponse.json(orchestrationState)
+    return NextResponse.json(state)
   } catch (error) {
-    console.error('Error fetching project orchestration state:', error)
+    console.error('Error getting orchestration state:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch orchestration state' },
+      { error: 'Failed to get orchestration state' },
       { status: 500 }
     )
   }

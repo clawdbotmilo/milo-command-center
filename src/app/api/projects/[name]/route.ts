@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getProject, deleteProject, projectExists, getRawPlan } from '@/lib/projects'
+import { getProjectDb, deleteProjectDb, projectExistsDb } from '@/lib/projects-db'
 
 interface RouteParams {
   params: Promise<{ name: string }>
@@ -9,14 +9,11 @@ interface RouteParams {
  * GET /api/projects/[name]
  * Returns project details including plan content
  */
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { name } = await params
     
-    const project = await getProject(name)
+    const project = await getProjectDb(name)
     
     if (!project) {
       return NextResponse.json(
@@ -25,13 +22,7 @@ export async function GET(
       )
     }
     
-    // Also get raw plan content
-    const rawPlan = await getRawPlan(name)
-    
-    return NextResponse.json({
-      ...project,
-      rawPlan,
-    })
+    return NextResponse.json({ project })
   } catch (error) {
     console.error('Error getting project:', error)
     return NextResponse.json(
@@ -43,24 +34,20 @@ export async function GET(
 
 /**
  * DELETE /api/projects/[name]
- * Removes project folder
+ * Deletes a project
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { name } = await params
     
-    // Check if project exists
-    if (!(await projectExists(name))) {
+    if (!await projectExistsDb(name)) {
       return NextResponse.json(
         { error: 'Project not found' },
         { status: 404 }
       )
     }
     
-    await deleteProject(name)
+    await deleteProjectDb(name)
     
     return NextResponse.json({ message: 'Project deleted successfully' })
   } catch (error) {

@@ -89,9 +89,9 @@ export function PlanEditor({
   return (
     <div className="flex flex-col h-full bg-white rounded-lg border border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
-        <div className="flex items-center gap-3">
-          <h2 className="font-semibold text-gray-900">Plan Editor</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3 lg:px-4 py-2 gap-2 border-b border-gray-200 bg-gray-50">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <h2 className="font-semibold text-gray-900 text-sm sm:text-base">Plan Editor</h2>
           {isReadonly && (
             <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full border border-yellow-300">
               Read Only ({status})
@@ -134,10 +134,10 @@ export function PlanEditor({
         </div>
       </div>
 
-      {/* Split Editor/Preview */}
-      <div className="flex-1 flex min-h-0">
+      {/* Split Editor/Preview - stacks on mobile */}
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
         {/* Editor Pane */}
-        <div className="flex-1 flex flex-col border-r border-gray-200 min-w-0">
+        <div className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 min-w-0 min-h-[200px] lg:min-h-0">
           <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100">
             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
               Editor
@@ -150,9 +150,9 @@ export function PlanEditor({
             placeholder={
               isReadonly
                 ? 'Plan is locked while project is ' + status.toLowerCase()
-                : 'Write your project plan in markdown...\n\n## Vision\nDescribe your project vision...\n\n## Success Criteria\n- [ ] Criterion 1\n- [ ] Criterion 2\n\n### Task 1: First Task\n- **ID:** T1\n- **Agent:** sonnet\n- **Dependencies:** none\n- **Description:** What this task does...'
+                : 'Write your project plan in markdown...'
             }
-            className={`flex-1 w-full p-4 font-mono text-sm resize-none focus:outline-none ${
+            className={`flex-1 w-full p-3 lg:p-4 font-mono text-sm resize-none focus:outline-none ${
               isReadonly
                 ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
                 : 'bg-white text-gray-900'
@@ -162,13 +162,13 @@ export function PlanEditor({
         </div>
 
         {/* Preview Pane */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-[200px] lg:min-h-0">
           <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100">
             <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
               Preview
             </span>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-3 lg:p-4">
             {content ? (
               <MarkdownPreview content={content} />
             ) : (

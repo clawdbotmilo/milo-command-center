@@ -127,7 +127,7 @@ export function ProjectList({ selectedProject, onSelect }: ProjectListProps) {
   }
 
   return (
-    <div className="w-[250px] h-full border-r border-gray-200 bg-white flex flex-col">
+    <div className="w-[85vw] max-w-[300px] lg:w-[250px] h-full border-r border-gray-200 bg-white flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <button

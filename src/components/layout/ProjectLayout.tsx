@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, ReactNode } from 'react'
+import { useState, useEffect, ReactNode } from 'react'
 
 interface ProjectLayoutProps {
   sidebar: ReactNode
@@ -8,7 +8,14 @@ interface ProjectLayoutProps {
 }
 
 export function ProjectLayout({ sidebar, children }: ProjectLayoutProps) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  // Start closed on mobile, open on desktop
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  
+  // Check screen size on mount
+  useEffect(() => {
+    const isDesktop = window.innerWidth >= 1024
+    setIsSidebarOpen(isDesktop)
+  }, [])
 
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-gray-50">

@@ -42,7 +42,7 @@ const SKILLS: Skill[] = [
   { name: 'bluebubbles', emoji: '💭' }
 ]
 
-const EC2_API = 'http://18.222.108.56:3002'
+// API routes proxy to EC2 to avoid mixed content issues
 
 function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
@@ -63,10 +63,10 @@ export default function Home() {
 
   const fetchAll = async () => {
     try {
-      // Fetch from EC2 API (system + cron)
+      // Fetch from API routes (proxied to EC2)
       const [systemRes, cronRes, tasksRes] = await Promise.all([
-        fetch(`${EC2_API}/api/system`).catch(() => null),
-        fetch(`${EC2_API}/api/cron`).catch(() => null),
+        fetch('/api/system', { cache: 'no-store' }).catch(() => null),
+        fetch('/api/cron', { cache: 'no-store' }).catch(() => null),
         fetch('/api/tasks', { cache: 'no-store' })
       ])
 

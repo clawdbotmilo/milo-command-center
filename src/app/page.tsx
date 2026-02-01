@@ -31,6 +31,12 @@ interface SystemInfo {
   memory: { total: string; used: string; usedPercent: string }
 }
 
+interface JournalEntry {
+  date: string
+  preview: string
+  content: string
+}
+
 const SKILLS: Skill[] = [
   { name: 'github', emoji: '🐙' },
   { name: 'himalaya', emoji: '📧' },
@@ -56,15 +62,18 @@ export default function Home() {
   const [system, setSystem] = useState<SystemInfo | null>(null)
   const [cron, setCron] = useState<CronJob[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
+  const [journal, setJournal] = useState<JournalEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<string>('')
+  const [expandedEntry, setExpandedEntry] = useState<string | null>(null)
 
   const fetchAll = async () => {
     try {
-      const [systemRes, cronRes, tasksRes] = await Promise.all([
+      const [systemRes, cronRes, tasksRes, journalRes] = await Promise.all([
         fetch('/api/system', { cache: 'no-store' }).catch(() => null),
         fetch('/api/cron', { cache: 'no-store' }).catch(() => null),
-        fetch('/api/tasks', { cache: 'no-store' })
+        fetch('/api/tasks', { cache: 'no-store' }),
+        fetch('/api/journal', { cache: 'no-store' }).catch(() => null)
       ])
 
       if (systemRes?.ok) {
@@ -75,6 +84,11 @@ export default function Home() {
       if (cronRes?.ok) {
         const cronData = await cronRes.json()
         setCron(cronData.cron || [])
+      }
+
+      if (journalRes?.ok) {
+        const journalData = await journalRes.json()
+        setJournal(journalData.entries || [])
       }
 
       if (tasksRes.ok) {
@@ -268,6 +282,39 @@ export default function Home() {
               <span>{system?.channel || '—'}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Journal */}
+      <div className="mt-6 bg-milo-card border border-milo-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <span>📔</span> Journal
+          </h2>
+          <span className="text-sm text-gray-500">{journal.length} entries</span>
+        </div>
+        <div className="space-y-3">
+          {journal.length === 0 ? (
+            <div className="text-gray-500 text-center py-4">No journal entries yet</div>
+          ) : (
+            journal.map((entry) => (
+              <div 
+                key={entry.date} 
+                className="bg-milo-dark rounded-lg p-4 border border-milo-border cursor-pointer hover:border-green-500/50 transition-colors"
+                onClick={() => setExpandedEntry(expandedEntry === entry.date ? null : entry.date)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-green-400">{entry.date}</span>
+                  <span className="text-xs text-gray-500">{expandedEntry === entry.date ? '▼' : '▶'}</span>
+                </div>
+                {expandedEntry === entry.date ? (
+                  <div className="text-sm text-gray-300 whitespace-pre-wrap">{entry.content}</div>
+                ) : (
+                  <div className="text-sm text-gray-400">{entry.preview}...</div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
 

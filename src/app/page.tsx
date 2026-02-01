@@ -20,21 +20,29 @@ interface Skill {
   emoji: string
 }
 
-interface StaticData {
-  generatedAt: string
-  system: {
-    hostname: string
-    os: string
-    nodeVersion: string
-    uptime: string
-    model: string
-    channel: string
-    disk: { total: string; used: string; usedPercent: string }
-    memory: { total: string; used: string; usedPercent: string }
-  }
-  cron: CronJob[]
-  skills: Skill[]
+interface SystemInfo {
+  hostname: string
+  os: string
+  nodeVersion: string
+  uptime: string
+  model: string
+  channel: string
+  disk: { total: string; used: string; usedPercent: string }
+  memory: { total: string; used: string; usedPercent: string }
 }
+
+const SKILLS: Skill[] = [
+  { name: 'github', emoji: '🐙' },
+  { name: 'himalaya', emoji: '📧' },
+  { name: 'notion', emoji: '📝' },
+  { name: 'slack', emoji: '💬' },
+  { name: 'tmux', emoji: '🖥️' },
+  { name: 'weather', emoji: '🌤️' },
+  { name: 'skill-creator', emoji: '🛠️' },
+  { name: 'bluebubbles', emoji: '💭' }
+]
+
+const EC2_API = 'http://18.222.108.56:3002'
 
 function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
@@ -47,45 +55,48 @@ function getStatusColor(status: string): string {
 }
 
 export default function Home() {
-  const [staticData, setStaticData] = useState<StaticData | null>(null)
+  const [system, setSystem] = useState<SystemInfo | null>(null)
+  const [cron, setCron] = useState<CronJob[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [tasksLoading, setTasksLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<string>('')
 
-  // Fetch static data (cron, system, skills) - generated at build time
-  useEffect(() => {
-    fetch('/static-data.json')
-      .then(res => res.json())
-      .then(data => {
-        setStaticData(data)
-        setLoading(false)
-      })
-      .catch(e => {
-        console.error('Failed to load static data:', e)
-        setError('Failed to load dashboard data')
-        setLoading(false)
-      })
-  }, [])
-
-  // Fetch dynamic Notion tasks
-  const fetchTasks = async () => {
-    setTasksLoading(true)
+  const fetchAll = async () => {
     try {
-      const response = await fetch('/api/tasks', { cache: 'no-store' })
-      const data = await response.json()
-      setTasks(data.tasks || [])
+      // Fetch from EC2 API (system + cron)
+      const [systemRes, cronRes, tasksRes] = await Promise.all([
+        fetch(`${EC2_API}/api/system`).catch(() => null),
+        fetch(`${EC2_API}/api/cron`).catch(() => null),
+        fetch('/api/tasks', { cache: 'no-store' })
+      ])
+
+      if (systemRes?.ok) {
+        const systemData = await systemRes.json()
+        setSystem(systemData)
+      }
+
+      if (cronRes?.ok) {
+        const cronData = await cronRes.json()
+        setCron(cronData.cron || [])
+      }
+
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json()
+        setTasks(tasksData.tasks || [])
+      }
+
+      setLastUpdated(new Date().toLocaleString())
     } catch (e) {
-      console.error('Failed to fetch tasks:', e)
+      console.error('Failed to fetch data:', e)
     } finally {
-      setTasksLoading(false)
+      setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchTasks()
-    // Auto-refresh tasks every 30 seconds
-    const interval = setInterval(fetchTasks, 30000)
+    fetchAll()
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchAll, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -93,14 +104,6 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-xl text-gray-400">Loading...</div>
-      </div>
-    )
-  }
-
-  if (error || !staticData) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl text-red-400">{error || 'No data available'}</div>
       </div>
     )
   }
@@ -122,13 +125,13 @@ export default function Home() {
             <span className="font-medium">Online</span>
           </div>
           <p className="text-sm text-gray-500 mono">
-            System data: {new Date(staticData.generatedAt).toLocaleString()}
+            Updated: {lastUpdated}
           </p>
           <button 
-            onClick={fetchTasks}
+            onClick={fetchAll}
             className="text-xs text-gray-500 hover:text-gray-300 mt-1"
           >
-            ↻ Refresh Tasks
+            ↻ Refresh
           </button>
         </div>
       </header>
@@ -137,22 +140,22 @@ export default function Home() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-milo-card border border-milo-border rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">Disk Usage</div>
-          <div className="text-2xl font-bold">{staticData.system.disk.usedPercent}</div>
-          <div className="text-sm text-gray-500">{staticData.system.disk.used} / {staticData.system.disk.total}</div>
+          <div className="text-2xl font-bold">{system?.disk.usedPercent || '—'}</div>
+          <div className="text-sm text-gray-500">{system ? `${system.disk.used} / ${system.disk.total}` : '—'}</div>
         </div>
         <div className="bg-milo-card border border-milo-border rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">Memory</div>
-          <div className="text-2xl font-bold">{staticData.system.memory.usedPercent}</div>
-          <div className="text-sm text-gray-500">{staticData.system.memory.used} / {staticData.system.memory.total}</div>
+          <div className="text-2xl font-bold">{system?.memory.usedPercent || '—'}</div>
+          <div className="text-sm text-gray-500">{system ? `${system.memory.used} / ${system.memory.total}` : '—'}</div>
         </div>
         <div className="bg-milo-card border border-milo-border rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">Active Cron Jobs</div>
-          <div className="text-2xl font-bold">{staticData.cron.length}</div>
+          <div className="text-2xl font-bold">{cron.length || '—'}</div>
           <div className="text-sm text-gray-500">Scheduled tasks</div>
         </div>
         <div className="bg-milo-card border border-milo-border rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">Skills Loaded</div>
-          <div className="text-2xl font-bold">{staticData.skills.length}</div>
+          <div className="text-2xl font-bold">{SKILLS.length}</div>
           <div className="text-sm text-gray-500">Available capabilities</div>
         </div>
       </div>
@@ -164,7 +167,6 @@ export default function Home() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <span>📋</span> Notion Tasks
-              {tasksLoading && <span className="text-xs text-gray-500">(refreshing...)</span>}
             </h2>
             <span className="text-sm text-gray-500 mono">{tasks.length} tasks</span>
           </div>
@@ -197,19 +199,26 @@ export default function Home() {
             </h2>
           </div>
           <div className="space-y-3">
-            {staticData.cron.map((job, i) => (
-              <div key={i} className="bg-milo-dark rounded-lg p-3 border border-milo-border">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium">{job.name}</div>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    job.enabled ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'
-                  }`}>
-                    {job.enabled ? 'Active' : 'Disabled'}
-                  </span>
+            {cron.length === 0 ? (
+              <div className="text-gray-500 text-center py-4">No cron jobs</div>
+            ) : (
+              cron.map((job, i) => (
+                <div key={i} className="bg-milo-dark rounded-lg p-3 border border-milo-border">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">{job.name}</div>
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      job.enabled ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'
+                    }`}>
+                      {job.enabled ? 'Active' : 'Disabled'}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-400 mt-1 mono">{job.schedule}</div>
+                  {job.nextRun && (
+                    <div className="text-xs text-gray-500 mt-1">Next: {job.nextRun}</div>
+                  )}
                 </div>
-                <div className="text-sm text-gray-400 mt-1 mono">{job.schedule}</div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -221,7 +230,7 @@ export default function Home() {
             </h2>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {staticData.skills.map((skill, i) => (
+            {SKILLS.map((skill, i) => (
               <div key={i} className="bg-milo-dark rounded-lg p-2 border border-milo-border text-center">
                 <div className="text-lg">{skill.emoji}</div>
                 <div className="text-sm font-medium">{skill.name}</div>
@@ -240,27 +249,27 @@ export default function Home() {
           <div className="space-y-2 mono text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">Host:</span>
-              <span>{staticData.system.hostname}</span>
+              <span>{system?.hostname || '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">OS:</span>
-              <span>{staticData.system.os}</span>
+              <span>{system?.os || '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Node.js:</span>
-              <span>{staticData.system.nodeVersion}</span>
+              <span>{system?.nodeVersion || '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Uptime:</span>
-              <span>{staticData.system.uptime}</span>
+              <span>{system?.uptime || '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Model:</span>
-              <span>{staticData.system.model}</span>
+              <span>{system?.model || '—'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Channel:</span>
-              <span>{staticData.system.channel}</span>
+              <span>{system?.channel || '—'}</span>
             </div>
           </div>
         </div>

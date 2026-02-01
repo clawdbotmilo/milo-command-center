@@ -302,17 +302,9 @@ export default function Home() {
 
       {/* Voice Panel */}
       <div className="mt-6 bg-milo-card border border-milo-border rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <span>🎤</span> Voice
-          </h2>
-          <a 
-            href="/conversation" 
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            🎙️ Voice Chat
-          </a>
-        </div>
+        <h2 className="text-xl font-semibold flex items-center gap-2 mb-4">
+          <span>🎤</span> Voice
+        </h2>
         <div className="flex gap-3">
           <input
             type="text"

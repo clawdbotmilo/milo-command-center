@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { ProjectProvider } from '@/context/ProjectContext'
+import { Navigation } from '@/components/layout/Navigation'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -14,7 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-milo-dark text-gray-100 min-h-screen">
-        {children}
+        <Navigation />
+        <ProjectProvider>
+          {children}
+        </ProjectProvider>
       </body>
     </html>
   )

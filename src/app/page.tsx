@@ -20,8 +20,8 @@ interface Skill {
   emoji: string
 }
 
-interface DashboardData {
-  timestamp: string
+interface StaticData {
+  generatedAt: string
   system: {
     hostname: string
     os: string
@@ -32,7 +32,6 @@ interface DashboardData {
     disk: { total: string; used: string; usedPercent: string }
     memory: { total: string; used: string; usedPercent: string }
   }
-  tasks: Task[]
   cron: CronJob[]
   skills: Skill[]
 }
@@ -48,29 +47,45 @@ function getStatusColor(status: string): string {
 }
 
 export default function Home() {
-  const [data, setData] = useState<DashboardData | null>(null)
+  const [staticData, setStaticData] = useState<StaticData | null>(null)
+  const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [tasksLoading, setTasksLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchData = async () => {
+  // Fetch static data (cron, system, skills) - generated at build time
+  useEffect(() => {
+    fetch('/static-data.json')
+      .then(res => res.json())
+      .then(data => {
+        setStaticData(data)
+        setLoading(false)
+      })
+      .catch(e => {
+        console.error('Failed to load static data:', e)
+        setError('Failed to load dashboard data')
+        setLoading(false)
+      })
+  }, [])
+
+  // Fetch dynamic Notion tasks
+  const fetchTasks = async () => {
+    setTasksLoading(true)
     try {
-      const response = await fetch('/api/data', { cache: 'no-store' })
-      if (!response.ok) throw new Error('Failed to fetch data')
-      const result = await response.json()
-      setData(result)
-      setError(null)
+      const response = await fetch('/api/tasks', { cache: 'no-store' })
+      const data = await response.json()
+      setTasks(data.tasks || [])
     } catch (e) {
-      setError('Failed to load dashboard data')
-      console.error(e)
+      console.error('Failed to fetch tasks:', e)
     } finally {
-      setLoading(false)
+      setTasksLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchData()
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000)
+    fetchTasks()
+    // Auto-refresh tasks every 30 seconds
+    const interval = setInterval(fetchTasks, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -82,7 +97,7 @@ export default function Home() {
     )
   }
 
-  if (error || !data) {
+  if (error || !staticData) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-xl text-red-400">{error || 'No data available'}</div>
@@ -107,13 +122,13 @@ export default function Home() {
             <span className="font-medium">Online</span>
           </div>
           <p className="text-sm text-gray-500 mono">
-            Updated: {new Date(data.timestamp).toLocaleString()}
+            System data: {new Date(staticData.generatedAt).toLocaleString()}
           </p>
           <button 
-            onClick={fetchData}
+            onClick={fetchTasks}
             className="text-xs text-gray-500 hover:text-gray-300 mt-1"
           >
-            ↻ Refresh
+            ↻ Refresh Tasks
           </button>
         </div>
       </header>
@@ -122,22 +137,22 @@ export default function Home() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-milo-card border border-milo-border rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">Disk Usage</div>
-          <div className="text-2xl font-bold">{data.system.disk.usedPercent}</div>
-          <div className="text-sm text-gray-500">{data.system.disk.used} / {data.system.disk.total}</div>
+          <div className="text-2xl font-bold">{staticData.system.disk.usedPercent}</div>
+          <div className="text-sm text-gray-500">{staticData.system.disk.used} / {staticData.system.disk.total}</div>
         </div>
         <div className="bg-milo-card border border-milo-border rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">Memory</div>
-          <div className="text-2xl font-bold">{data.system.memory.usedPercent}</div>
-          <div className="text-sm text-gray-500">{data.system.memory.used} / {data.system.memory.total}</div>
+          <div className="text-2xl font-bold">{staticData.system.memory.usedPercent}</div>
+          <div className="text-sm text-gray-500">{staticData.system.memory.used} / {staticData.system.memory.total}</div>
         </div>
         <div className="bg-milo-card border border-milo-border rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">Active Cron Jobs</div>
-          <div className="text-2xl font-bold">{data.cron.length}</div>
+          <div className="text-2xl font-bold">{staticData.cron.length}</div>
           <div className="text-sm text-gray-500">Scheduled tasks</div>
         </div>
         <div className="bg-milo-card border border-milo-border rounded-xl p-4">
           <div className="text-gray-400 text-sm mb-1">Skills Loaded</div>
-          <div className="text-2xl font-bold">{data.skills.length}</div>
+          <div className="text-2xl font-bold">{staticData.skills.length}</div>
           <div className="text-sm text-gray-500">Available capabilities</div>
         </div>
       </div>
@@ -149,14 +164,15 @@ export default function Home() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <span>📋</span> Notion Tasks
+              {tasksLoading && <span className="text-xs text-gray-500">(refreshing...)</span>}
             </h2>
-            <span className="text-sm text-gray-500 mono">{data.tasks.length} tasks</span>
+            <span className="text-sm text-gray-500 mono">{tasks.length} tasks</span>
           </div>
           <div className="space-y-3">
-            {data.tasks.length === 0 ? (
+            {tasks.length === 0 ? (
               <div className="text-gray-500 text-center py-4">No active tasks 🎉</div>
             ) : (
-              data.tasks.map((task, i) => (
+              tasks.map((task, i) => (
                 <div key={i} className="bg-milo-dark rounded-lg p-3 border border-milo-border">
                   <div className="flex items-start justify-between">
                     <div className="font-medium">{task.name}</div>
@@ -181,7 +197,7 @@ export default function Home() {
             </h2>
           </div>
           <div className="space-y-3">
-            {data.cron.map((job, i) => (
+            {staticData.cron.map((job, i) => (
               <div key={i} className="bg-milo-dark rounded-lg p-3 border border-milo-border">
                 <div className="flex items-center justify-between">
                   <div className="font-medium">{job.name}</div>
@@ -192,9 +208,6 @@ export default function Home() {
                   </span>
                 </div>
                 <div className="text-sm text-gray-400 mt-1 mono">{job.schedule}</div>
-                {job.nextRun && (
-                  <div className="text-xs text-gray-500 mt-1">Next: {job.nextRun}</div>
-                )}
               </div>
             ))}
           </div>
@@ -208,7 +221,7 @@ export default function Home() {
             </h2>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {data.skills.map((skill, i) => (
+            {staticData.skills.map((skill, i) => (
               <div key={i} className="bg-milo-dark rounded-lg p-2 border border-milo-border text-center">
                 <div className="text-lg">{skill.emoji}</div>
                 <div className="text-sm font-medium">{skill.name}</div>
@@ -227,27 +240,27 @@ export default function Home() {
           <div className="space-y-2 mono text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">Host:</span>
-              <span>{data.system.hostname}</span>
+              <span>{staticData.system.hostname}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">OS:</span>
-              <span>{data.system.os}</span>
+              <span>{staticData.system.os}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Node.js:</span>
-              <span>{data.system.nodeVersion}</span>
+              <span>{staticData.system.nodeVersion}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Uptime:</span>
-              <span>{data.system.uptime}</span>
+              <span>{staticData.system.uptime}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Model:</span>
-              <span>{data.system.model}</span>
+              <span>{staticData.system.model}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Channel:</span>
-              <span>{data.system.channel}</span>
+              <span>{staticData.system.channel}</span>
             </div>
           </div>
         </div>

@@ -32,6 +32,11 @@ const statusConfig: Record<ConnectionStatusType, {
     label: 'Error',
     animate: false,
   },
+  polling: {
+    color: 'bg-blue-500',
+    label: 'Polling',
+    animate: true,
+  },
 }
 
 /**

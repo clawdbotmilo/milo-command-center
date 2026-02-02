@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Use Next.js runtime plugin
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Environment variables (secrets set via CLI)
+[context.production.environment]
+  NODE_ENV = "production"
+
+# Headers for SSE - though note SSE may have limitations on Netlify
+[[headers]]
+  for = "/api/events"
+  [headers.values]
+    X-Accel-Buffering = "no"
+    Cache-Control = "no-cache, no-transform"

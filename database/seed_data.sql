@@ -8,47 +8,47 @@
 
 INSERT INTO villagers (name, role, personality, position_x, position_y, money, home_x, home_y, sprite_key, status) VALUES
 
--- HANA - The Flower Shop Owner
+-- HANA - The Farmer
 -- Cheerful and nurturing, she tends to the village gardens
-('Hana', 'florist', 
-'Gentle and nurturing soul who speaks to her flowers. Optimistic to a fault, she believes every problem can be solved with the right bouquet. Tends to hum while working and has an encyclopedic knowledge of flower meanings. Gets flustered when complimented.',
-45, 120, 150, 40, 115, 'villager_hana', 'idle'),
+('Hana', 'Farmer', 
+'Gentle and nurturing soul who speaks to her plants. Optimistic to a fault, she believes every problem can be solved with the right harvest. Tends to hum while working and has an encyclopedic knowledge of crops and seasons. Gets flustered when complimented.',
+45, 120, 150, 40, 115, 'farmer', 'idle'),
 
 -- KENJI - The Blacksmith
 -- Gruff exterior but kind heart, makes tools and repairs
-('Kenji', 'blacksmith',
+('Kenji', 'Blacksmith',
 'Strong and stoic, speaks in short sentences. Underneath his gruff exterior lies a surprisingly gentle soul who carves tiny wooden animals in secret. Takes immense pride in his craft. Respects hard work above all else. Has a soft spot for children.',
-180, 80, 200, 185, 75, 'villager_kenji', 'idle'),
+180, 80, 200, 185, 75, 'blacksmith', 'idle'),
 
 -- YUKI - The Baker  
 -- Warm and motherly, the heart of village social life
-('Yuki', 'baker',
+('Yuki', 'Baker',
 'Warm and motherly, her bakery is the heart of village gossip. She knows everyone''s business but keeps secrets well. Wakes before dawn and considers feeding people her life''s purpose. Fiercely protective of the village. Makes the best melon bread in the region.',
-100, 150, 180, 95, 145, 'villager_yuki', 'idle'),
+100, 150, 180, 95, 145, 'baker', 'idle'),
 
 -- TAKESHI - The Traveling Merchant
 -- Adventurous storyteller, brings goods and tales from afar
-('Takeshi', 'merchant',
+('Takeshi', 'Merchant',
 'Charismatic wanderer with a tale for every occasion (most of them exaggerated). Deals in rare goods and rarer information. Loves haggling but always gives fair prices to friends. Has a mysterious past he hints at but never fully reveals. Collects interesting stones.',
-200, 200, 500, 205, 195, 'villager_takeshi', 'idle'),
+200, 200, 500, 205, 195, 'merchant', 'idle'),
 
--- SORA - The Village Elder / Banker
--- Wise keeper of village funds and traditions
-('Sora', 'banker',
-'Ancient and wise, she remembers when the village was just three houses. Manages the village treasury with an iron will but fair heart. Speaks in proverbs and riddles that somehow always make sense later. Has a mischievous streak that surprises newcomers.',
-128, 60, 1000, 125, 55, 'villager_sora', 'idle'),
+-- SORA - The Village Elder
+-- Wise keeper of village traditions and wisdom
+('Sora', 'Elder',
+'Ancient and wise, she remembers when the village was just three houses. Guides the village with a gentle but firm hand. Speaks in proverbs and riddles that somehow always make sense later. Has a mischievous streak that surprises newcomers.',
+128, 60, 1000, 125, 55, 'elder', 'idle'),
 
--- REN - The Fisher
--- Quiet philosopher who finds wisdom in patience
-('Ren', 'fisher',
-'Patient and philosophical, finds meaning in the rhythm of waves. Speaks rarely but when he does, people listen. Best friends with silence. Knows the weather better than anyone and can predict storms days ahead. Secretly writes poetry he''s too shy to share.',
-30, 200, 120, 25, 205, 'villager_ren', 'idle'),
+-- REN - The Banker
+-- Quiet philosopher who manages village finances
+('Ren', 'Banker',
+'Patient and philosophical, finds meaning in careful accounting. Speaks rarely but when he does, people listen. Best friends with silence. Knows the village finances better than anyone. Secretly writes poetry he''s too shy to share.',
+30, 200, 120, 25, 205, 'banker', 'idle'),
 
--- MIKA - The Apprentice / Odd-Jobber
--- Energetic youth learning all trades, dreams of adventure
-('Mika', 'apprentice',
-'Boundless energy wrapped in youthful optimism. Currently apprenticed to everyone and master of nothing (yet). Dreams of adventure beyond the village but loves home too much to leave. Asks endless questions. Trips over things frequently. Has befriended every village animal.',
-128, 128, 50, 130, 130, 'villager_mika', 'idle');
+-- MIKA - The Traveler
+-- Energetic wanderer, brings news and stories from afar
+('Mika', 'Traveler',
+'Boundless energy wrapped in wanderlust. Dreams of adventure and has seen many places. Asks endless questions about everywhere she hasn''t been yet. Trips over things frequently. Has befriended animals in every village she''s visited.',
+128, 128, 50, 130, 130, 'traveler', 'idle');
 
 -- ============================================
 -- INITIAL WORLD STATE

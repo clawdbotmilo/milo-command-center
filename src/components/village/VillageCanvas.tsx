@@ -374,9 +374,9 @@ export function VillageCanvas({
         const isHovered = hoveredVillager?.id === villager.id
         const isSelected = selectedVillager?.id === villager.id
         
-        // Get sprite for this villager's role
-        const roleKey = villager.role?.toLowerCase().replace(/\s+/g, '') || 'merchant'
-        const sprite = sprites[roleKey]
+        // Get sprite for this villager (use sprite_key if available, fallback to role)
+        const spriteKey = (villager as any).sprite_key || villager.role?.toLowerCase().replace(/\s+/g, '') || 'merchant'
+        const sprite = sprites[spriteKey]
         const spriteScale = camera.zoom * 1.5 // Scale sprite based on zoom
         const spriteDrawSize = SPRITE_SIZE * spriteScale
 

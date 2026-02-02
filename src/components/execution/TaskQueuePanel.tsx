@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useTasks, type TaskWithMeta } from '@/hooks/useTasks'
 import { TaskCard } from './TaskCard'
 import type { TaskStatus } from '@/types/project'
@@ -160,6 +161,37 @@ function ProgressBar({ tasksByStatus }: { tasksByStatus: Record<TaskStatus, Task
 
 export function TaskQueuePanel({ projectName, refreshInterval = 5000 }: TaskQueuePanelProps) {
   const { tasks, tasksByStatus, isLoading, error, refetch } = useTasks(projectName)
+  const [isDispatching, setIsDispatching] = useState(false)
+  const [dispatchMessage, setDispatchMessage] = useState<string | null>(null)
+
+  const handleTick = async () => {
+    setIsDispatching(true)
+    setDispatchMessage(null)
+    try {
+      const res = await fetch('/api/orchestration/tick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project: projectName }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        setDispatchMessage(`❌ ${data.message || data.error}`)
+      } else {
+        const parts = []
+        if (data.tasksStarted?.length) parts.push(`Started: ${data.tasksStarted.join(', ')}`)
+        if (data.tasksCompleted?.length) parts.push(`Completed: ${data.tasksCompleted.join(', ')}`)
+        if (data.tasksFailed?.length) parts.push(`Failed: ${data.tasksFailed.join(', ')}`)
+        if (data.projectCompleted) parts.push('🎉 Project Complete!')
+        setDispatchMessage(parts.length ? `✅ ${parts.join(' | ')}` : `✅ ${data.message}`)
+        refetch()
+      }
+    } catch (err) {
+      setDispatchMessage('❌ Failed to run tick')
+    } finally {
+      setIsDispatching(false)
+      setTimeout(() => setDispatchMessage(null), 8000)
+    }
+  }
 
   // Auto-refresh when there are running tasks
   const hasRunningTasks = tasksByStatus.RUNNING.length > 0
@@ -202,14 +234,28 @@ export function TaskQueuePanel({ projectName, refreshInterval = 5000 }: TaskQueu
     <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-100">Task Queue</h2>
-        <button
-          onClick={refetch}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-          title="Refresh"
-        >
-          ↻ Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleTick}
+            disabled={isDispatching}
+            className="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isDispatching ? 'Running...' : '⚡ Execute'}
+          </button>
+          <button
+            onClick={() => refetch()}
+            className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            title="Refresh"
+          >
+            ↻ Refresh
+          </button>
+        </div>
       </div>
+      {dispatchMessage && (
+        <div className={`mb-4 p-2 rounded-lg text-sm ${dispatchMessage.startsWith('✅') ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'}`}>
+          {dispatchMessage}
+        </div>
+      )}
 
       <ProgressBar tasksByStatus={tasksByStatus} />
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { listProjects, getOrchestrationState } from '@/lib/projects'
+import { listProjectsDb, getOrchestrationStateDb } from '@/lib/projects-db'
 
 const MAX_CONCURRENT_AGENTS = 3
 
@@ -12,15 +12,15 @@ interface RunningAgent {
 
 export async function GET() {
   try {
-    const projects = await listProjects()
+    const projects = await listProjectsDb()
     const agents: RunningAgent[] = []
     
     // Scan all projects for running tasks
     for (const project of projects) {
-      const orchestrationState = await getOrchestrationState(project.name)
+      const orchestrationState = await getOrchestrationStateDb(project.name)
       
-      if (orchestrationState) {
-        for (const [taskId, taskState] of Object.entries(orchestrationState.tasks)) {
+      if (orchestrationState?.tasks) {
+        for (const [taskId, taskState] of Object.entries(orchestrationState.tasks) as [string, { status: string; model: 'sonnet' | 'opus'; started?: string }][]) {
           if (taskState.status === 'RUNNING') {
             agents.push({
               taskId,

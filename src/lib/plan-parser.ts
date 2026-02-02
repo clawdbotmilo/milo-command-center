@@ -7,23 +7,20 @@ export interface ParseResult {
 
 /**
  * Parse a PROJECT-PLAN.md markdown file to extract tasks, dependencies, and metadata.
+ * Supports both formats:
+ * - ### [T1] Task Name (model)
+ * - ### Task 1: Task Name with **ID:** T1
  */
 export function parsePlan(markdown: string): ParseResult {
   const errors: string[] = []
   
-  // Extract vision
-  const vision = extractVision(markdown)
-  if (!vision) {
-    errors.push('Missing or empty ## Vision section')
-  }
+  // Extract vision/overview
+  const vision = extractVision(markdown) || extractOverview(markdown)
   
-  // Extract success criteria
-  const successCriteria = extractSuccessCriteria(markdown)
-  if (successCriteria.length === 0) {
-    errors.push('Missing or empty ## Success Criteria section')
-  }
+  // Extract success criteria / completion criteria
+  const successCriteria = extractSuccessCriteria(markdown) || extractCompletionCriteriaSection(markdown)
   
-  // Extract tasks
+  // Extract tasks (try both formats)
   const { tasks, taskErrors } = extractTasks(markdown)
   errors.push(...taskErrors)
   
@@ -31,14 +28,14 @@ export function parsePlan(markdown: string): ParseResult {
     errors.push('No tasks found in plan')
   }
   
-  // Return null plan if critical errors
-  if (!vision || tasks.length === 0) {
+  // Return null plan only if no tasks at all
+  if (tasks.length === 0) {
     return { plan: null, errors }
   }
   
   return {
     plan: {
-      vision,
+      vision: vision || 'No vision specified',
       successCriteria,
       tasks,
     },
@@ -47,29 +44,47 @@ export function parsePlan(markdown: string): ParseResult {
 }
 
 /**
- * Extract the vision statement from the markdown.
+ * Extract the vision statement.
  */
 function extractVision(markdown: string): string | null {
   const visionMatch = markdown.match(/^## Vision\s*\n([\s\S]*?)(?=^## |$)/m)
   if (!visionMatch) return null
-  
-  const content = visionMatch[1].trim()
-  return content || null
+  return visionMatch[1].trim() || null
+}
+
+/**
+ * Extract overview section (alternative to vision).
+ */
+function extractOverview(markdown: string): string | null {
+  const match = markdown.match(/^## Overview\s*\n([\s\S]*?)(?=^## |$)/m)
+  if (!match) return null
+  return match[1].trim() || null
 }
 
 /**
  * Extract success criteria checkboxes.
  */
 function extractSuccessCriteria(markdown: string): string[] {
-  const sectionMatch = markdown.match(/^## Success Criteria\s*\n([\s\S]*?)(?=\n## )/m)
-  if (!sectionMatch) {
-    // Try matching to end of document
-    const endMatch = markdown.match(/^## Success Criteria\s*\n([\s\S]*)$/m)
-    if (!endMatch) return []
-    return parseCheckboxes(endMatch[1])
-  }
-  
+  const sectionMatch = markdown.match(/^## Success Criteria\s*\n([\s\S]*?)(?=\n## |$)/m)
+  if (!sectionMatch) return []
   return parseCheckboxes(sectionMatch[1])
+}
+
+/**
+ * Extract completion criteria section.
+ */
+function extractCompletionCriteriaSection(markdown: string): string[] {
+  const sectionMatch = markdown.match(/^## Completion Criteria\s*\n([\s\S]*?)(?=\n## |$)/m)
+  if (!sectionMatch) return []
+  
+  // Parse bullet points
+  const bullets: string[] = []
+  const bulletRegex = /^[-*]\s+(.+)$/gm
+  let match
+  while ((match = bulletRegex.exec(sectionMatch[1])) !== null) {
+    bullets.push(match[1].trim())
+  }
+  return bullets
 }
 
 /**
@@ -77,14 +92,11 @@ function extractSuccessCriteria(markdown: string): string[] {
  */
 function parseCheckboxes(section: string): string[] {
   const criteria: string[] = []
-  
-  // Match checkbox items: - [ ] or - [x]
   const checkboxRegex = /^[-*]\s*\[[ x]\]\s*(.+)$/gm
   let match
   while ((match = checkboxRegex.exec(section)) !== null) {
     criteria.push(match[1].trim())
   }
-  
   return criteria
 }
 
@@ -95,26 +107,51 @@ function extractTasks(markdown: string): { tasks: Task[]; taskErrors: string[] }
   const tasks: Task[] = []
   const taskErrors: string[] = []
   
-  // Split by task headers
-  const taskHeaderRegex = /^### Task \d+:\s*(.+)$/gm
-  const headers: { name: string; index: number }[] = []
+  // Try new format first: ### [T1] Task Name (model)
+  const newFormatRegex = /^### \[([^\]]+)\]\s+(.+?)\s*\((\w+)\)\s*$/gm
   let match
+  const taskSections: { id: string; name: string; model: string; startIndex: number }[] = []
   
-  while ((match = taskHeaderRegex.exec(markdown)) !== null) {
-    headers.push({ name: match[1].trim(), index: match.index + match[0].length })
+  while ((match = newFormatRegex.exec(markdown)) !== null) {
+    taskSections.push({
+      id: match[1].trim(),
+      name: match[2].trim(),
+      model: match[3].trim().toLowerCase(),
+      startIndex: match.index + match[0].length,
+    })
   }
   
+  // If no new format tasks found, try old format: ### Task 1: Name
+  if (taskSections.length === 0) {
+    const oldFormatRegex = /^### Task \d+:\s*(.+)$/gm
+    while ((match = oldFormatRegex.exec(markdown)) !== null) {
+      taskSections.push({
+        id: '',  // Will be extracted from body
+        name: match[1].trim(),
+        model: '',  // Will be extracted from body
+        startIndex: match.index + match[0].length,
+      })
+    }
+  }
+  
+  // Parse dependencies section for dependency mapping
+  const depsMap = parseDependenciesSection(markdown)
+  
   // Extract each task's body
-  for (let i = 0; i < headers.length; i++) {
-    const startIndex = headers[i].index
-    const endIndex = i + 1 < headers.length 
-      ? markdown.lastIndexOf('\n### Task', headers[i + 1].index)
-      : markdown.length
+  for (let i = 0; i < taskSections.length; i++) {
+    const startIndex = taskSections[i].startIndex
+    const endIndex = i + 1 < taskSections.length 
+      ? markdown.lastIndexOf('\n###', taskSections[i + 1].startIndex)
+      : markdown.indexOf('\n## Dependencies') !== -1 
+        ? markdown.indexOf('\n## Dependencies')
+        : markdown.indexOf('\n## Completion') !== -1
+          ? markdown.indexOf('\n## Completion')
+          : markdown.length
     
     const taskBody = markdown.slice(startIndex, endIndex)
-    const taskName = headers[i].name
+    const section = taskSections[i]
     
-    const { task, errors } = parseTaskSection(taskName, taskBody)
+    const { task, errors } = parseTaskSection(section, taskBody, depsMap)
     if (task) {
       tasks.push(task)
     }
@@ -125,54 +162,100 @@ function extractTasks(markdown: string): { tasks: Task[]; taskErrors: string[] }
 }
 
 /**
+ * Parse dependencies section into a map.
+ */
+function parseDependenciesSection(markdown: string): Map<string, string[]> {
+  const map = new Map<string, string[]>()
+  const sectionMatch = markdown.match(/^## Dependencies\s*\n([\s\S]*?)(?=\n## |$)/m)
+  if (!sectionMatch) return map
+  
+  // Parse lines like "- T2 depends on T1" or "T2 depends on T1, T3"
+  const lines = sectionMatch[1].split('\n')
+  for (const line of lines) {
+    const depMatch = line.match(/[-*]?\s*(T\d+)\s+depends on\s+(.+)/i)
+    if (depMatch) {
+      const taskId = depMatch[1].toUpperCase()
+      const deps = depMatch[2]
+        .split(/[,&]|\band\b/i)
+        .map(d => d.trim())
+        .filter(d => /^T\d+$/i.test(d))
+        .map(d => d.toUpperCase())
+      map.set(taskId, deps)
+    }
+  }
+  
+  return map
+}
+
+/**
  * Parse a single task section.
  */
-function parseTaskSection(name: string, body: string): { task: Task | null; errors: string[] } {
+function parseTaskSection(
+  header: { id: string; name: string; model: string },
+  body: string,
+  depsMap: Map<string, string[]>
+): { task: Task | null; errors: string[] } {
   const errors: string[] = []
   
-  // Extract ID
-  const idMatch = body.match(/^\s*[-*]\s*\*\*ID:\*\*\s*(\S+)/m)
-  const id = idMatch ? idMatch[1].trim() : null
+  // Get ID (from header or body)
+  let id: string = header.id
   if (!id) {
-    errors.push(`Task "${name}": Missing ID field`)
+    const idMatch = body.match(/^\s*[-*]\s*\*\*ID:\*\*\s*(\S+)/m)
+    id = idMatch ? idMatch[1].trim() : ''
+  }
+  if (!id) {
+    errors.push(`Task "${header.name}": Missing ID`)
     return { task: null, errors }
   }
   
-  // Extract Agent/Model
-  const agentMatch = body.match(/^\s*[-*]\s*\*\*Agent:\*\*\s*(\S+)/m)
-  const agentRaw = agentMatch ? agentMatch[1].trim().toLowerCase() : 'sonnet'
-  const model: 'sonnet' | 'opus' = agentRaw === 'opus' ? 'opus' : 'sonnet'
-  
-  // Extract Dependencies
-  const depsMatch = body.match(/^\s*[-*]\s*\*\*Dependencies:\*\*\s*(.+)/m)
-  const depsRaw = depsMatch ? depsMatch[1].trim() : 'none'
-  const dependencies = parseDependencies(depsRaw)
-  
-  // Extract Complexity
-  const complexityMatch = body.match(/^\s*[-*]\s*\*\*Estimated complexity:\*\*\s*(\S+)/m)
-  const complexityRaw = complexityMatch ? complexityMatch[1].trim().toLowerCase() : 'medium'
-  const complexity = parseComplexity(complexityRaw)
-  
-  // Extract Description
-  const descMatch = body.match(/^\s*[-*]\s*\*\*Description:\*\*\s*([\s\S]*?)(?=^\s*[-*]\s*\*\*|\Z)/m)
-  const description = descMatch ? descMatch[1].trim() : ''
-  if (!description) {
-    errors.push(`Task ${id}: Missing description`)
+  // Get model (from header or body)
+  let model: 'sonnet' | 'opus' = header.model === 'opus' ? 'opus' : 'sonnet'
+  if (!header.model) {
+    const agentMatch = body.match(/^\s*[-*]\s*\*\*Agent:\*\*\s*(\S+)/m)
+    if (agentMatch) {
+      model = agentMatch[1].trim().toLowerCase() === 'opus' ? 'opus' : 'sonnet'
+    }
   }
   
-  // Extract Files
+  // Get dependencies (from section map or body)
+  let dependencies = depsMap.get(id.toUpperCase()) || []
+  if (dependencies.length === 0) {
+    const depsMatch = body.match(/^\s*[-*]\s*\*\*Dependencies:\*\*\s*(.+)/m)
+    if (depsMatch) {
+      const depsRaw = depsMatch[1].trim()
+      if (depsRaw.toLowerCase() !== 'none') {
+        dependencies = depsRaw
+          .split(/[,&+]|\band\b/i)
+          .map(d => d.trim())
+          .filter(d => /^T\d+$/i.test(d))
+          .map(d => d.toUpperCase())
+      }
+    }
+  }
+  
+  // Get description
+  const descMatch = body.match(/^\s*[-*]\s*\*\*Description:\*\*\s*(.+)/m)
+  const description = descMatch ? descMatch[1].trim() : ''
+  
+  // Get files
   const files = extractFiles(body)
   
-  // Extract Completion Criteria
-  const completionCriteria = extractCompletionCriteria(body)
-  if (completionCriteria.length === 0) {
-    errors.push(`Task ${id}: Missing completion criteria`)
-  }
+  // Get criteria
+  const criteriaMatch = body.match(/^\s*[-*]\s*\*\*Criteria:\*\*\s*(.+)/m)
+  const completionCriteria = criteriaMatch 
+    ? [criteriaMatch[1].trim()]
+    : extractCompletionCriteria(body)
+  
+  // Get complexity
+  const complexityMatch = body.match(/^\s*[-*]\s*\*\*(?:Estimated )?complexity:\*\*\s*(\S+)/mi)
+  const complexity = complexityMatch 
+    ? parseComplexity(complexityMatch[1]) 
+    : 'medium'
   
   return {
     task: {
-      id,
-      name,
+      id: id.toUpperCase(),
+      name: header.name,
       description,
       model,
       dependencies,
@@ -183,24 +266,6 @@ function parseTaskSection(name: string, body: string): { task: Task | null; erro
     },
     errors,
   }
-}
-
-/**
- * Parse dependencies string into array of task IDs.
- */
-function parseDependencies(raw: string): string[] {
-  if (!raw || raw.toLowerCase() === 'none') {
-    return []
-  }
-  
-  // Handle formats like "T1", "T1, T2", "T1 and T2", "T1 + T2"
-  const deps = raw
-    .split(/[,&+]|\band\b/i)
-    .map(d => d.trim())
-    .filter(d => /^T\d+$/i.test(d))
-    .map(d => d.toUpperCase())
-  
-  return deps
 }
 
 /**
@@ -217,26 +282,35 @@ function parseComplexity(raw: string): 'low' | 'medium' | 'high' {
  * Extract files to create/modify.
  */
 function extractFiles(body: string): string[] {
-  // Find the start of "Files to create/modify" section
-  const startIdx = body.search(/[-*]\s*\*\*Files to create\/modify:\*\*/)
-  if (startIdx === -1) return []
-  
-  // Find the end (next top-level bullet with bold or end of body)
-  const afterStart = body.slice(startIdx)
-  const endMatch = afterStart.match(/\n[-*]\s*\*\*(?!Files)/)
-  const filesSection = endMatch 
-    ? afterStart.slice(0, endMatch.index) 
-    : afterStart
-  
   const files: string[] = []
   
-  // Match file paths in backticks
-  const fileLineRegex = /`([^`]+)`/g
-  let match
-  while ((match = fileLineRegex.exec(filesSection)) !== null) {
-    const file = match[1]
-    if (file && (file.includes('/') || file.includes('.'))) {
-      files.push(file)
+  // Check for Files section
+  const filesMatch = body.match(/^\s*[-*]\s*\*\*Files:\*\*\s*(.+)/m)
+  if (filesMatch) {
+    // Extract file paths in backticks on same line
+    const fileRegex = /`([^`]+)`/g
+    let match
+    while ((match = fileRegex.exec(filesMatch[1])) !== null) {
+      if (match[1].includes('/') || match[1].includes('.')) {
+        files.push(match[1])
+      }
+    }
+  }
+  
+  // Also check for "Files to create/modify" section
+  const startIdx = body.search(/[-*]\s*\*\*Files to create\/modify:\*\*/i)
+  if (startIdx !== -1) {
+    const afterStart = body.slice(startIdx)
+    const endMatch = afterStart.match(/\n[-*]\s*\*\*(?!Files)/)
+    const filesSection = endMatch ? afterStart.slice(0, endMatch.index) : afterStart
+    
+    const fileLineRegex = /`([^`]+)`/g
+    let match
+    while ((match = fileLineRegex.exec(filesSection)) !== null) {
+      const file = match[1]
+      if (file && (file.includes('/') || file.includes('.')) && !files.includes(file)) {
+        files.push(file)
+      }
     }
   }
   
@@ -247,16 +321,12 @@ function extractFiles(body: string): string[] {
  * Extract completion criteria checkboxes.
  */
 function extractCompletionCriteria(body: string): string[] {
-  // Find the start of "Completion Criteria" section
-  const startIdx = body.search(/[-*]\s*\*\*Completion Criteria:\*\*/)
+  const startIdx = body.search(/[-*]\s*\*\*Completion Criteria:\*\*/i)
   if (startIdx === -1) return []
   
-  // Get everything after that header (completion criteria is typically last in a task)
   const section = body.slice(startIdx)
-  
   const criteria: string[] = []
   
-  // Match checkbox items with any indentation
   const checkboxRegex = /[-*]\s*\[[ x]\]\s*(.+)/g
   let match
   while ((match = checkboxRegex.exec(section)) !== null) {

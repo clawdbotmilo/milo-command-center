@@ -8,6 +8,7 @@ import type { OrchestrationState, TaskState } from '@/types/orchestration'
 export interface TaskWithMeta {
   id: string
   name: string
+  description?: string
   model: 'sonnet' | 'opus'
   status: TaskStatus
   dependencies: string[]
@@ -49,13 +50,14 @@ const fetchTasks = async (projectName: string): Promise<TasksData> => {
   }
 
   const orchestrationState: OrchestrationState = await orchestrationRes.json()
-  const project = await projectRes.json()
+  const projectData = await projectRes.json()
+  const project = projectData.project // API returns { project: {...} }
 
   // Build task name map from project plan
-  const taskMap = new Map<string, { name: string; dependencies: string[] }>()
-  if (project.plan?.tasks) {
+  const taskMap = new Map<string, { name: string; dependencies: string[]; description?: string }>()
+  if (project?.plan?.tasks) {
     for (const task of project.plan.tasks) {
-      taskMap.set(task.id, { name: task.name, dependencies: task.dependencies })
+      taskMap.set(task.id, { name: task.name, dependencies: task.dependencies, description: task.description })
     }
   }
 
@@ -66,6 +68,7 @@ const fetchTasks = async (projectName: string): Promise<TasksData> => {
       return {
         id,
         name: taskInfo?.name || `Task ${id}`,
+        description: taskInfo?.description,
         model: state.model,
         status: state.status,
         dependencies: state.dependencies || taskInfo?.dependencies || [],

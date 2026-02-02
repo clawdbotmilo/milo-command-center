@@ -2,12 +2,22 @@
   "name": "milo-command-center",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/generate-static-data.js",
+    "dev:ws": "node server.js",
+    "prebuild": "node scripts/generate-static-data.cjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "start:ws": "NODE_ENV=production node server.js",
+    "lint": "next lint",
+    "sim:start": "node simulation-service.js",
+    "sim:dev": "VERBOSE=true node simulation-service.js",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop ecosystem.config.cjs",
+    "pm2:restart": "pm2 restart ecosystem.config.cjs",
+    "pm2:logs": "pm2 logs",
+    "pm2:status": "pm2 status"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.93.3",
@@ -16,7 +26,8 @@
     "react": "latest",
     "react-dom": "latest",
     "swr": "^2.4.0",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/node": "latest",

@@ -177,6 +177,13 @@ export function TaskCard({ task, compact = false }: TaskCardProps) {
         </div>
       </div>
 
+      {/* Description */}
+      {task.description && !compact && (
+        <p className="mt-2 text-sm text-gray-400 line-clamp-2">
+          {task.description}
+        </p>
+      )}
+
       {/* Dependencies */}
       {task.dependencies.length > 0 && !compact && (
         <div className="mt-3 pt-3 border-t border-gray-700/50">
@@ -189,10 +196,11 @@ export function TaskCard({ task, compact = false }: TaskCardProps) {
         </div>
       )}
 
-      {/* Compact dependencies */}
-      {task.dependencies.length > 0 && compact && (
+      {/* Compact: description and dependencies */}
+      {compact && (
         <div className="mt-2 text-xs text-gray-500">
-          → {task.dependencies.join(', ')}
+          {task.description && <p className="line-clamp-1 mb-1">{task.description}</p>}
+          {task.dependencies.length > 0 && <span>→ {task.dependencies.join(', ')}</span>}
         </div>
       )}
 

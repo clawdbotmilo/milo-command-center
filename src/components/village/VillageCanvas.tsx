@@ -6,7 +6,7 @@
  * Features:
  * - Pan and zoom controls
  * - Building rendering with labels
- * - Villager display with status indicators
+ * - Villager sprites with animations
  * - Real-time position updates
  */
 
@@ -18,6 +18,18 @@ const GRID_SIZE = 256
 const TILE_SIZE = 16 // Base tile size in pixels
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 4
+
+// Sprite configuration
+const SPRITE_SIZE = 32 // Each sprite is 32x32 in the sheet
+const VILLAGER_SPRITES: Record<string, string> = {
+  merchant: '/assets/village/villagers/merchant.png',
+  baker: '/assets/village/villagers/baker.png',
+  banker: '/assets/village/villagers/banker.png',
+  farmer: '/assets/village/villagers/farmer.png',
+  blacksmith: '/assets/village/villagers/blacksmith.png',
+  traveler: '/assets/village/villagers/traveler.png',
+  elder: '/assets/village/villagers/elder.png',
+}
 
 // Building type colors
 const BUILDING_COLORS: Record<string, string> = {
@@ -98,6 +110,36 @@ export function VillageCanvas({
   const [hoveredVillager, setHoveredVillager] = useState<VillagerState | null>(null)
   const [hoveredBuilding, setHoveredBuilding] = useState<Building | null>(null)
   const [selectedVillager, setSelectedVillager] = useState<VillagerState | null>(null)
+  const [sprites, setSprites] = useState<Record<string, HTMLImageElement>>({})
+  const [spritesLoaded, setSpritesLoaded] = useState(false)
+
+  // Load all villager sprites on mount
+  useEffect(() => {
+    const loadedSprites: Record<string, HTMLImageElement> = {}
+    let loadedCount = 0
+    const totalSprites = Object.keys(VILLAGER_SPRITES).length
+
+    Object.entries(VILLAGER_SPRITES).forEach(([role, src]) => {
+      const img = new Image()
+      img.onload = () => {
+        loadedSprites[role] = img
+        loadedCount++
+        if (loadedCount === totalSprites) {
+          setSprites(loadedSprites)
+          setSpritesLoaded(true)
+        }
+      }
+      img.onerror = () => {
+        console.warn(`Failed to load sprite for ${role}`)
+        loadedCount++
+        if (loadedCount === totalSprites) {
+          setSprites(loadedSprites)
+          setSpritesLoaded(true)
+        }
+      }
+      img.src = src
+    })
+  }, [])
 
   // Notify parent of camera changes
   useEffect(() => {
@@ -329,30 +371,51 @@ export function VillageCanvas({
     if (state?.villagers) {
       for (const villager of state.villagers) {
         const screenPos = worldToScreen(villager.position_x, villager.position_y)
-        const radius = 6 * camera.zoom
         const isHovered = hoveredVillager?.id === villager.id
         const isSelected = selectedVillager?.id === villager.id
+        
+        // Get sprite for this villager's role
+        const roleKey = villager.role?.toLowerCase().replace(/\s+/g, '') || 'merchant'
+        const sprite = sprites[roleKey]
+        const spriteScale = camera.zoom * 1.5 // Scale sprite based on zoom
+        const spriteDrawSize = SPRITE_SIZE * spriteScale
 
-        // Status indicator ring
+        // Status indicator ring (below sprite)
         const statusColor = STATUS_COLORS[villager.status] || STATUS_COLORS.default
         ctx.beginPath()
-        ctx.arc(screenPos.x, screenPos.y, radius + 3 * camera.zoom, 0, Math.PI * 2)
+        ctx.arc(screenPos.x, screenPos.y + spriteDrawSize * 0.3, spriteDrawSize * 0.4, 0, Math.PI * 2)
         ctx.fillStyle = statusColor
+        ctx.globalAlpha = 0.5
         ctx.fill()
+        ctx.globalAlpha = 1
 
-        // Villager body
-        ctx.beginPath()
-        ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2)
-        ctx.fillStyle = isSelected ? '#FFD700' : isHovered ? '#FFFFFF' : '#E0E0E0'
-        ctx.fill()
-        ctx.strokeStyle = '#000000'
-        ctx.lineWidth = 1
-        ctx.stroke()
+        // Draw sprite if loaded, otherwise fallback to circle
+        if (sprite && spritesLoaded) {
+          // Draw the front-facing sprite (first 32x32 portion)
+          ctx.drawImage(
+            sprite,
+            0, 0, SPRITE_SIZE, SPRITE_SIZE, // Source: first sprite in sheet
+            screenPos.x - spriteDrawSize / 2,
+            screenPos.y - spriteDrawSize / 2,
+            spriteDrawSize,
+            spriteDrawSize
+          )
+        } else {
+          // Fallback to colored circle
+          const radius = 8 * camera.zoom
+          ctx.beginPath()
+          ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2)
+          ctx.fillStyle = isSelected ? '#FFD700' : isHovered ? '#FFFFFF' : '#E0E0E0'
+          ctx.fill()
+          ctx.strokeStyle = '#000000'
+          ctx.lineWidth = 1
+          ctx.stroke()
+        }
 
         // Selection/hover indicator
         if (isSelected || isHovered) {
           ctx.beginPath()
-          ctx.arc(screenPos.x, screenPos.y, radius + 6 * camera.zoom, 0, Math.PI * 2)
+          ctx.arc(screenPos.x, screenPos.y, spriteDrawSize * 0.6, 0, Math.PI * 2)
           ctx.strokeStyle = isSelected ? '#FFD700' : '#FFFFFF'
           ctx.lineWidth = 2
           ctx.setLineDash([4, 4])
@@ -361,17 +424,17 @@ export function VillageCanvas({
         }
 
         // Villager name (at higher zoom or when hovered/selected)
-        if ((camera.zoom >= 1 || isHovered || isSelected)) {
+        if ((camera.zoom >= 0.75 || isHovered || isSelected)) {
           ctx.fillStyle = '#FFFFFF'
           ctx.font = `bold ${Math.max(10, 11 * camera.zoom)}px sans-serif`
           ctx.textAlign = 'center'
-          ctx.fillText(villager.name, screenPos.x, screenPos.y - radius - 6 * camera.zoom)
+          ctx.fillText(villager.name, screenPos.x, screenPos.y - spriteDrawSize / 2 - 4)
           
           // Role beneath name
-          if (camera.zoom >= 1.5 || isHovered || isSelected) {
+          if (camera.zoom >= 1.25 || isHovered || isSelected) {
             ctx.font = `${Math.max(8, 9 * camera.zoom)}px sans-serif`
             ctx.fillStyle = '#AAAAAA'
-            ctx.fillText(villager.role, screenPos.x, screenPos.y - radius - 18 * camera.zoom)
+            ctx.fillText(villager.role, screenPos.x, screenPos.y - spriteDrawSize / 2 - 16)
           }
         }
       }
@@ -387,7 +450,7 @@ export function VillageCanvas({
 
     // Draw HUD info
     drawHUD(ctx)
-  }, [camera, width, height, buildings, state, hoveredVillager, hoveredBuilding, selectedVillager, isDragging, screenToWorld, worldToScreen, drawMinimap, drawVillagerTooltip, drawHUD])
+  }, [camera, width, height, buildings, state, hoveredVillager, hoveredBuilding, selectedVillager, isDragging, screenToWorld, worldToScreen, drawMinimap, drawVillagerTooltip, drawHUD, sprites, spritesLoaded])
 
   // Animation loop
   useEffect(() => {
